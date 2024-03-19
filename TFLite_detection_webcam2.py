@@ -150,7 +150,11 @@ def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_bo
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)  # Draw blue rectangle
                 cv2.putText(frame, 'Predefined Box', (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)  # Add label
             count += 1
+# Define predefined boxes for each image
+predefined_boxes = {
 
+     'IMG20240306144822-OD8Xgcis-min.jpg': [(748, 642, 842, 770), (1393, 1084, 1507, 1167), (2293, 1155, 2407, 1238), (2356, 1019, 2456, 1090), (2745, 696, 2816, 824)]
+}
         # Display frame
         cv2.imshow('Object Detection', frame)
 
@@ -161,17 +165,15 @@ def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_bo
 
         
         # Check for quit command
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            # Stop the video stream when the loop ends
-            videostream.stop()
+        if cv2.waitKey(1) == ord('q'):
+              break
 
             # Cleanup
             cv2.destroyAllWindows()
-            break
+
+ # Stop the video stream when the loop ends
+            videostream.stop()
+          
 
 
-# Define predefined boxes for each image
-predefined_boxes = {
 
-     'IMG20240306144822-OD8Xgcis-min.jpg': [(748, 642, 842, 770), (1393, 1084, 1507, 1167), (2293, 1155, 2407, 1238), (2356, 1019, 2456, 1090), (2745, 696, 2816, 824)]
-}
