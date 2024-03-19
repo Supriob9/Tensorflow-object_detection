@@ -140,7 +140,7 @@ def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_bo
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
                 label = "{}: {:.2f}%".format(labels[int(classes[i])], scores[i] * 100)
                 cv2.putText(frame, label, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-, 0), 2)
+
 
         # Draw predefined boxes on the webcam feed
         count = 0
