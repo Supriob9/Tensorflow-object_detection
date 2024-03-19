@@ -1,24 +1,22 @@
-# Import necessary libraries
+# Import necessary packages
 import os
-import argparse
 import cv2
 import numpy as np
-import sys
 import time
 from threading import Thread
-import importlib.util
-import subprocess  # Added subprocess module for notifications
+from tflite_runtime.interpreter import Interpreter
 
-# Define VideoStream class to handle streaming of video from webcam in a separate processing thread
+# Define VideoStream class
 class VideoStream:
-    def __init__(self, resolution=(640, 480), framerate=30):
+    """Camera object that controls video streaming from the Picamera"""
+    def __init__(self,resolution=(640,480),framerate=30):
         # Initialize the PiCamera and the camera image stream
         self.stream = cv2.VideoCapture(0)
         ret = self.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-        ret = self.stream.set(3, resolution[0])
-        ret = self.stream.set(4, resolution[1])
-
-        # Read the first frame from the stream
+        ret = self.stream.set(3,resolution[0])
+        ret = self.stream.set(4,resolution[1])
+            
+        # Read first frame from the stream
         (self.grabbed, self.frame) = self.stream.read()
 
         # Variable to control when the camera is stopped
@@ -26,7 +24,7 @@ class VideoStream:
 
     def start(self):
         # Start the thread that reads frames from the video stream
-        Thread(target=self.update, args=()).start()
+        Thread(target=self.update,args=()).start()
         return self
 
     def update(self):
@@ -49,148 +47,137 @@ class VideoStream:
         # Indicate that the camera and thread should be stopped
         self.stopped = True
 
-# Function to check if two bounding boxes intersect
-def do_boxes_intersect(box1, box2):
-    x1_box1, y1_box1, x2_box1, y2_box1 = box1
-    x1_box2, y1_box2, x2_box2, y2_box2 = box2
+# Define a function to check for intersection between two bounding boxes
+def box_intersect(box1, box2):
+    # Implementation to check for intersection between two boxes
+    # Return True if there is an intersection, False otherwise
+    return (box1[0] < box2[2] and box1[2] > box2[0] and box1[1] < box2[3] and box1[3] > box2[1])
 
-    if (x1_box1 < x2_box2 and x2_box1 > x1_box2 and y1_box1 < y2_box2 and y2_box1 > y1_box2):
-        return True
-    else:
-        return False
+# Define a function to check for intersection between probe and predefined boxes
+def detect_intersection(probe_box, predefined_boxes):
+    for box in predefined_boxes:
+        if box_intersect(probe_box, box):
+            return True
+    return False
 
-# Define and parse input arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('--modeldir', help='Folder the .tflite file is located in', required=True)
-parser.add_argument('--graph', help='Name of the .tflite file, if different than detect.tflite', default='detect.tflite')
-parser.add_argument('--labels', help='Name of the labelmap file, if different than labelmap.txt', default='labelmap.txt')
-parser.add_argument('--threshold', help='Minimum confidence threshold for displaying detected objects', default=0.5)
-parser.add_argument('--resolution', help='Desired webcam resolution in WxH. If the webcam does not support the resolution entered, errors may occur.', default='1280x720')
-parser.add_argument('--edgetpu', help='Use Coral Edge TPU Accelerator to speed up detection', action='store_true')
+# Main function for object detection
+def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_boxes):
+    # Get path to current working directory
+    CWD_PATH = os.getcwd()
 
-args = parser.parse_args()
+    # Path to .tflite file, which contains the model that is used for object detection
+    PATH_TO_CKPT = os.path.join(CWD_PATH, modeldir, graph)
 
-MODEL_NAME = args.modeldir
-GRAPH_NAME = args.graph
-LABELMAP_NAME = args.labels
-min_conf_threshold = float(args.threshold)
-resW, resH = args.resolution.split('x')
-imW, imH = int(resW), int(resH)
-use_TPU = args.edgetpu
+    # Load the Tensorflow Lite model
+    interpreter = Interpreter(model_path=PATH_TO_CKPT)
+    interpreter.allocate_tensors()
 
-# Import TensorFlow libraries
-pkg = importlib.util.find_spec('tflite_runtime')
-if pkg:
-    from tflite_runtime.interpreter import Interpreter
-else:
-    from tensorflow.lite.python.interpreter import Interpreter
+    # Get model details
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    height = input_details[0]['shape'][1]
+    width = input_details[0]['shape'][2]
 
-# If using Edge TPU, assign filename for Edge TPU model
-if use_TPU:
-    if (GRAPH_NAME == 'detect.tflite'):
-        GRAPH_NAME = 'edgetpu.tflite'
+    # Define input mean and std for normalization
+    input_mean = 127.5
+    input_std = 127.5
 
-# Get path to current working directory
-CWD_PATH = os.getcwd()
+    # Initialize video stream
+    videostream = VideoStream(resolution=(width, height), framerate=30).start()
+    time.sleep(1)
 
-# Path to .tflite file
-PATH_TO_CKPT = os.path.join(CWD_PATH, MODEL_NAME, GRAPH_NAME)
+    # Initialize variables for frame rate calculation
+    frame_rate_calc = 1
+    freq = cv2.getTickFrequency()
 
-# Path to label map file
-PATH_TO_LABELS = os.path.join(CWD_PATH, MODEL_NAME, LABELMAP_NAME)
+    # Main loop for object detection
+    while True:
+        # Start timer
+        t1 = cv2.getTickCount()
 
-# Load the label map
-with open(PATH_TO_LABELS, 'r') as f:
-    labels = [line.strip() for line in f.readlines()]
+        # Grab frame from video stream
+        frame1 = videostream.read()
 
-# Load the Tensorflow Lite model
-interpreter = Interpreter(model_path=PATH_TO_CKPT)
-interpreter.allocate_tensors()
+        # Acquire frame and resize to expected shape [1xHxWx3]
+        frame = frame1.copy()
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_resized = cv2.resize(frame_rgb, (width, height))
+        input_data = np.expand_dims(frame_resized, axis=0)
 
-# Get model details
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-height = input_details[0]['shape'][1]
-width = input_details[0]['shape'][2]
+        # Normalize pixel values if using a floating model
+        if input_details[0]['dtype'] == np.float32:
+            input_data = (np.float32(input_data) - input_mean) / input_std
 
-floating_model = (input_details[0]['dtype'] == np.float32)
+        # Set input tensor to the image
+        interpreter.set_tensor(input_details[0]['index'], input_data)
 
-input_mean = 127.5
-input_std = 127.5
+        # Run inference
+        interpreter.invoke()
 
-# Check output layer name to determine if this model was created with TF2 or TF1
-outname = output_details[0]['name']
-if 'StatefulPartitionedCall' in outname:
-    boxes_idx, classes_idx, scores_idx = 1, 3, 0
-else:
-    boxes_idx, classes_idx, scores_idx = 0, 1, 2
+        # Retrieve detection results
+        boxes = interpreter.get_tensor(output_details[0]['index'])[0]
+        classes = interpreter.get_tensor(output_details[1]['index'])[0]
+        scores = interpreter.get_tensor(output_details[2]['index'])[0]
 
-# Initialize dictionaries to store previous bounding boxes for each class
-previous_boxes = {'leakage': [], 'probe': []}
+        # Loop over all detections
+        for i in range(len(scores)):
+            if ((scores[i] > threshold) and (scores[i] <= 1.0)):
+                # Get bounding box coordinates
+                ymin, xmin, ymax, xmax = boxes[i]
+                xmin = int(xmin * frame.shape[1])
+                ymin = int(ymin * frame.shape[0])
+                xmax = int(xmax * frame.shape[1])
+                ymax = int(ymax * frame.shape[0])
 
-# Initialize video stream
-videostream = VideoStream(resolution=(imW, imH), framerate=30).start()
-time.sleep(1)
+                # Check for intersection with predefined boxes
+                probe_box = (xmin, ymin, xmax, ymax)
+                if detect_intersection(probe_box, predefined_boxes.get(image_filename, [])):
+                    # Trigger notification function here
+                    print("Intersection detected!")
 
-while True:
-    # Grab frame from video stream
-    frame1 = videostream.read()
+                # Draw bounding box and label
+                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+                label = "{}: {:.2f}%".format(labels[int(classes[i])], scores[i] * 100)
+                cv2.putText(frame, label, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-    # Acquire frame and resize to expected shape [1xHxWx3]
-    frame = frame1.copy()
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame_resized = cv2.resize(frame_rgb, (width, height))
-    input_data = np.expand_dims(frame_resized, axis=0)
+        # Draw predefined boxes on the webcam feed
+        count = 0
+        for image_filename, boxes in predefined_boxes.items():
+            if count >= 5:
+                break
+            for box in boxes[:5]:  # Select the first 5 boxes
+                xmin, ymin, xmax, ymax = box
+                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)  # Draw blue rectangle
+                cv2.putText(frame, 'Predefined Box', (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)  # Add label
+            count += 1
 
-    # Normalize pixel values if using a floating model
-    if floating_model:
-        input_data = (np.float32(input_data) - input_mean) / input_std
+        # Display frame
+        cv2.imshow('Object Detection', frame)
 
-    # Perform object detection
-    interpreter.set_tensor(input_details[0]['index'], input_data)
-    interpreter.invoke()
+        # Calculate framerate
+        t2 = cv2.getTickCount()
+        time1 = (t2 - t1) / freq
+        frame_rate_calc = 1 / time1
 
-    # Retrieve detection results
-    boxes = interpreter.get_tensor(output_details[boxes_idx]['index'])[0]
-    classes = interpreter.get_tensor(output_details[classes_idx]['index'])[0]
-    scores = interpreter.get_tensor(output_details[scores_idx]['index'])[0]
+        # Check for quit command
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-    # Loop over all detections
-    for i in range(len(scores)):
-        if (scores[i] > min_conf_threshold) and (scores[i] <= 1.0):
-            ymin = int(max(1, (boxes[i][0] * imH)))
-            xmin = int(max(1, (boxes[i][1] * imW)))
-            ymax = int(min(imH, (boxes[i][2] * imH)))
-            xmax = int(min(imW, (boxes[i][3] * imW)))
+    # Cleanup
+    cv2.destroyAllWindows()
+  videostream.stop()
 
-            # Draw rectangle and label
-            cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (10, 255, 0), 2)
-            object_name = labels[int(classes[i])]
-            label = f'{object_name}: {int(scores[i] * 100)}%'
-            labelSize, baseLine = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-            label_ymin = max(ymin, labelSize[1] + 10)
-            cv2.rectangle(frame, (xmin, label_ymin - labelSize[1] - 10), (xmin + labelSize[0], label_ymin + baseLine - 10),
-                          (255, 255, 255), cv2.FILLED)
-            cv2.putText(frame, label, (xmin, label_ymin - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+# Define predefined boxes for each image
+predefined_boxes = {
 
-            # Check for intersections with previous bounding boxes
-            for prev_box in previous_boxes[object_name]:
-                if do_boxes_intersect((xmin, ymin, xmax, ymax), prev_box) and object_name != prev_box[4]:
-                    print(f"Intersection detected between {object_name} and {prev_box[4]}")
-
-                    # Display notification using notify-send
-                    subprocess.run(['notify-send', 'Object Intersection', f'Detected between {object_name} and {prev_box[4]}'])
-
-            # Update previous_boxes for the current class
-            previous_boxes[object_name].append((xmin, ymin, xmax, ymax, object_name))
-
-    # Display frame with bounding boxes
-    cv2.imshow('Object detector', frame)
-
-    # Quit when 'q' key is pressed
-    if cv2.waitKey(1) == ord('q'):
-        break
-
-# Clean up
-cv2.destroyAllWindows()
-videostream.stop()
+    'IMG20240306144810-dE6Xgcis-min.jpg': [(771, 661, 886, 776), (1508, 991, 1642, 1064), (2371, 764, 2476, 832), (2370, 896, 2467, 976), (2742, 386, 2825, 505)],
+    'IMG20240306144811-Ol4Xgcis-min.jpg': [(735, 536, 838, 628), (1465, 868, 1583, 943), (2380, 801, 2515, 888), (2410, 655, 2525, 730), (2810, 268, 2888, 395)],
+    'IMG20240306144812-TL3Xgcis-min.jpg': [(674, 558, 761, 675), (1337, 925, 1469, 1013), (2332, 783, 2464, 853), (2286, 927, 2416, 1015), (2738, 405, 2823, 530)],
+    'IMG20240306144814-uO3Xgcis-min.jpg': [(738, 534, 823, 667), (1357, 931, 1492, 1011), (2320, 967, 2428, 1054), (2377, 829, 2492, 895), (2748, 469, 2815, 590)],
+    'IMG20240306144815-K96Xgcis-min.jpg': [(409, 487, 486, 602), (1041, 876, 1151, 954), (2035, 774, 2148, 844), (1978, 907, 2094, 982), (2368, 432, 2438, 532)],
+    'IMG20240306144817-MT6Xgcis-min.jpg': [(524, 608, 610, 729), (1133, 1026, 1239, 1102), (2048, 1105, 2183, 1191), (2121, 973, 2236, 1041), (2463, 646, 2548, 773)],
+    'IMG20240306144818-IK6Xgcis-min.jpg': [(779, 687, 863, 818), (1382, 1136, 1491, 1202), (2397, 1108, 2494, 1181), (2779, 784, 2864, 905), (2317, 1242, 2429, 1327)],
+    'IMG20240306144819-wI6Xgcis-min.jpg': [(758, 712, 825, 831), (1389, 1153, 1498, 1231), (2320, 1220, 2423, 1312), (2381, 1092, 2478, 1164), (2778, 767, 2853, 884)],
+    'IMG20240306144820-Jf7Xgcis-min.jpg': [(740, 545, 823, 662), (1377, 984, 1491, 1062), (2356, 930, 2462, 1000), (2285, 1068, 2410, 1146), (2739, 617, 2833, 736)],
+    'IMG20240306144822-OD8Xgcis-min.jpg': [(748, 642, 842, 770), (1393, 1084, 1507, 1167), (2293, 1155, 2407, 1238), (2356, 1019, 2456, 1090), (2745, 696, 2816, 824)]
+}
