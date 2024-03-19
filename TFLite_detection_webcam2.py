@@ -135,10 +135,12 @@ def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_bo
                     # Trigger notification function here
                     print("Intersection detected!")
 
+
                 # Draw bounding box and label
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
                 label = "{}: {:.2f}%".format(labels[int(classes[i])], scores[i] * 100)
                 cv2.putText(frame, label, (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+, 0), 2)
 
         # Draw predefined boxes on the webcam feed
         count = 0
@@ -150,11 +152,7 @@ def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_bo
                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)  # Draw blue rectangle
                 cv2.putText(frame, 'Predefined Box', (xmin, ymin - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)  # Add label
             count += 1
-# Define predefined boxes for each image
-predefined_boxes = {
 
-     'IMG20240306144822-OD8Xgcis-min.jpg': [(748, 642, 842, 770), (1393, 1084, 1507, 1167), (2293, 1155, 2407, 1238), (2356, 1019, 2456, 1090), (2745, 696, 2816, 824)]
-}
         # Display frame
         cv2.imshow('Object Detection', frame)
 
@@ -163,17 +161,21 @@ predefined_boxes = {
         time1 = (t2 - t1) / freq
         frame_rate_calc = 1 / time1
 
-        
         # Check for quit command
         if cv2.waitKey(1) == ord('q'):
-              break
+            break
 
-            # Cleanup
-            cv2.destroyAllWindows()
+    # Stop the video stream when the loop ends
+    videostream.stop()
 
- # Stop the video stream when the loop ends
-            videostream.stop()
-          
+    # Cleanup
+    cv2.destroyAllWindows()
 
+# Define predefined boxes for each image
+predefined_boxes = {
+    'IMG20240306144822-OD8Xgcis-min.jpg': [(748, 642, 842, 770), (1393, 1084, 1507, 1167), (2293, 1155, 2407, 1238), (2356, 1019, 2456, 1090), (2745, 696, 2816, 824)]
+}
 
+# Run object detection
+detect_objects(modeldir='custom_model_lite', graph='detect.tflite', labels=[], threshold=0.5, resolution=(640, 480), predefined_boxes=predefined_boxes)
 
