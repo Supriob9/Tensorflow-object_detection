@@ -159,13 +159,15 @@ def detect_objects(modeldir, graph, labels, threshold, resolution, predefined_bo
         time1 = (t2 - t1) / freq
         frame_rate_calc = 1 / time1
 
-        # Check for quit command
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+       # Check for quit command
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-    # Cleanup
-    cv2.destroyAllWindows()
-  videostream.stop()
+# Stop the video stream when the loop ends
+videostream.stop()
+
+# Cleanup
+cv2.destroyAllWindows()
 
 # Define predefined boxes for each image
 predefined_boxes = {
