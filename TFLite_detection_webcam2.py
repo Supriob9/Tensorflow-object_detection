@@ -168,7 +168,9 @@ while True:
     frame1 = videostream.read()
 
     # Draw image coordinates onto the frame
-    for xmin, ymin, xmax, ymax in image_coordinates['IMG20240306144822-OD8Xgcis-min.jpg']:
+    for coords in image_coordinates['IMG20240306144822-OD8Xgcis-min.jpg']:
+        print("Coordinates:", coords)
+        xmin, ymin, xmax, ymax = coords
         cv2.rectangle(frame1, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)
 
     # Display the frame
