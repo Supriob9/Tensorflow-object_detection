@@ -98,13 +98,22 @@ else:
 frame_rate_calc = 1
 freq = cv2.getTickFrequency()
 
-# Predefined box coordinates with numbers and distance thresholds
-predefined_boxes = [
+# Predefined box coordinates for camera 1 with numbers and distance thresholds
+predefined_boxes_cam1 = [
     ((291,187,329,240), 'Box 1', 7),
     ((504,300,539,334), 'Box 2', 9),
     ((763,295,798,321), 'Box 3', 9),
     ((763,330,795,353), 'Box 4', 12),
     ((897,191,920,230), 'Box 5', 10)
+]
+
+# Predefined box coordinates for camera 2 with numbers and distance thresholds
+predefined_boxes_cam2 = [
+    ((100,100,150,150), 'Box 1', 7),
+    ((200,200,250,250), 'Box 2', 9),
+    ((300,300,350,350), 'Box 3', 9),
+    ((400,400,450,450), 'Box 4', 12),
+    ((500,500,550,550), 'Box 5', 10)
 ]
 
 # Create instances of VideoStream for both cameras
@@ -148,8 +157,8 @@ while True:
             cv2.rectangle(frame1, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
             cv2.putText(frame1, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
-            # Check for intersection with predefined boxes
-            for box_coords, box_number, distance_threshold in predefined_boxes:
+            # Check for intersection with predefined boxes for camera 1
+            for box_coords, box_number, distance_threshold in predefined_boxes_cam1:
                 box_xmin, box_ymin, box_xmax, box_ymax = box_coords
                 if xmin < box_xmax and xmax > box_xmin and ymin < box_ymax and ymax > box_ymin:
                     # Calculate distance from camera (you need to implement this)
@@ -161,8 +170,8 @@ while True:
                         cv2.rectangle(frame1, (xmin, ymax), (xmin+notificationSize[0], ymax+notificationSize[1]+10), (0, 255, 255), cv2.FILLED)
                         cv2.putText(frame1, notification, (xmin, ymax+notificationSize[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
-    # Drawing predefined boxes
-    for box_coords, _, _ in predefined_boxes:
+    # Drawing predefined boxes for camera 1
+    for box_coords, _, _ in predefined_boxes_cam1:
         cv2.rectangle(frame1, (box_coords[0], box_coords[1]), (box_coords[2], box_coords[3]), (0, 0, 255), 2)
 
     # Perform object detection on frame2
@@ -196,8 +205,8 @@ while True:
             cv2.rectangle(frame2, (xmin, label_ymin-labelSize[1]-10), (xmin+labelSize[0], label_ymin+baseLine-10), (255, 255, 255), cv2.FILLED)
             cv2.putText(frame2, label, (xmin, label_ymin-7), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
-            # Check for intersection with predefined boxes
-            for box_coords, box_number, distance_threshold in predefined_boxes:
+            # Check for intersection with predefined boxes for camera 2
+            for box_coords, box_number, distance_threshold in predefined_boxes_cam2:
                 box_xmin, box_ymin, box_xmax, box_ymax = box_coords
                 if xmin < box_xmax and xmax > box_xmin and ymin < box_ymax and ymax > box_ymin:
                     # Calculate distance from camera (you need to implement this)
@@ -209,8 +218,8 @@ while True:
                         cv2.rectangle(frame2, (xmin, ymax), (xmin+notificationSize[0], ymax+notificationSize[1]+10), (0, 255, 255), cv2.FILLED)
                         cv2.putText(frame2, notification, (xmin, ymax+notificationSize[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
-    # Drawing predefined boxes
-    for box_coords, _, _ in predefined_boxes:
+    # Drawing predefined boxes for camera 2
+    for box_coords, _, _ in predefined_boxes_cam2:
         cv2.rectangle(frame2, (box_coords[0], box_coords[1]), (box_coords[2], box_coords[3]), (0, 0, 255), 2)
 
     # Display frames
