@@ -101,19 +101,19 @@ freq = cv2.getTickFrequency()
 # Predefined box coordinates for camera 1 with numbers and distance thresholds
 predefined_boxes_cam1 = [
     ((291,187,329,240), 'Box 1', 7),
-    ((504,300,539,334), 'Box 2', 9),
-    ((763,295,798,321), 'Box 3', 9),
-    ((763,330,795,353), 'Box 4', 12),
-    ((897,191,920,230), 'Box 5', 10)
+    ((474,315,513,345), 'Box 2', 9),
+    ((728,298,763,327), 'Box 3', 9),
+    ((719,334,757,364), 'Box 4', 12),
+    ((826,195,848,242), 'Box 5', 10)
 ]
 
 # Predefined box coordinates for camera 2 with numbers and distance thresholds
 predefined_boxes_cam2 = [
-    ((100,100,150,150), 'Box 1', 7),
-    ((200,200,250,250), 'Box 2', 9),
-    ((300,300,350,350), 'Box 3', 9),
-    ((400,400,450,450), 'Box 4', 12),
-    ((500,500,550,550), 'Box 5', 10)
+    ((317,288,346,316), 'Box 1', 7),
+    ((428,388,468,409), 'Box 2', 9),
+    ((675,389,726,417), 'Box 3', 9),
+    ((665,416,696,458), 'Box 4', 12),
+    ((759,298,797,336), 'Box 5', 10)
 ]
 
 # Create instances of VideoStream for both cameras
