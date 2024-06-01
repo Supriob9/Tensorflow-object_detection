@@ -9,7 +9,7 @@ sudo apt-get -y install qt4-dev-tools
 sudo apt-get -y install libatlas-base-dev
 
 # Need to get an older version of OpenCV because version 4 has errors
-pip3 install opencv-python==3.4.11.41
+pip3 install opencv-python
 
 # Get packages required for TensorFlow
 # Using the tflite_runtime packages available at https://www.tensorflow.org/lite/guide/python
