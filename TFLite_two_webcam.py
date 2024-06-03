@@ -222,6 +222,15 @@ while True:
     for box_coords, _, _ in predefined_boxes_cam2:
         cv2.rectangle(frame2, (box_coords[0], box_coords[1]), (box_coords[2], box_coords[3]), (0, 0, 255), 2)
 
+    # Calculate and display the FPS
+    t2 = cv2.getTickCount()
+    time1 = (t2 - t1) / freq
+    frame_rate_calc = 1 / time1
+
+    # Display the FPS on both frames
+    cv2.putText(frame1, 'FPS: {:.2f}'.format(frame_rate_calc), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2, cv2.LINE_AA)
+    cv2.putText(frame2, 'FPS: {:.2f}'.format(frame_rate_calc), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2, cv2.LINE_AA)
+
     # Display frames
     cv2.imshow('Camera 1', frame1)
     cv2.imshow('Camera 2', frame2)
