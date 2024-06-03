@@ -225,6 +225,12 @@ while True:
     # Concatenate the frames horizontally
     combined_frame = np.concatenate((frame1, frame2), axis=1)
 
+    # Calculate and display the FPS
+    t2 = cv2.getTickCount()
+    time1 = (t2 - t1) / freq
+    frame_rate_calc = 1 / time1
+    cv2.putText(combined_frame, 'FPS: {:.2f}'.format(frame_rate_calc), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2, cv2.LINE_AA)
+
     # Display the combined frame
     cv2.imshow('Combined Feed', combined_frame)
 
