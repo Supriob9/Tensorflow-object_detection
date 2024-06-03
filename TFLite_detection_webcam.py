@@ -6,25 +6,20 @@ import sys
 import time
 from threading import Thread
 import importlib.util
-
-# Importing Interpreter class from tflite_runtime if available, otherwise from tensorflow.lite.python
-try:
-    from tflite_runtime.interpreter import Interpreter
-except ImportError:
-    from tensorflow.lite.python.interpreter import Interpreter
-
+lower_range=np.array([11,88,106])
+upper_range=np.array([65,147,189])
 # Define VideoStream class to handle streaming of video from webcam in separate processing thread
 class VideoStream:
-    def __init__(self,resolution=(640,480),framerate=30):
+    def __init__(self, resolution=(640, 480), framerate=30):
         self.stream = cv2.VideoCapture(0)
         ret = self.stream.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-        ret = self.stream.set(3,resolution[0])
-        ret = self.stream.set(4,resolution[1])   
+        ret = self.stream.set(3, resolution[0])
+        ret = self.stream.set(4, resolution[1])   
         (self.grabbed, self.frame) = self.stream.read()
         self.stopped = False
 
     def start(self):
-        Thread(target=self.update,args=()).start()
+        Thread(target=self.update, args=()).start()
         return self
 
     def update(self):
@@ -113,12 +108,55 @@ time.sleep(1)
 
 # Predefined box coordinates with numbers
 predefined_boxes = [
-    ((291,187,329,240), 'Box 1'),
-    ((504,300,539,334), 'Box 2'),
-    ((763,295,798,321), 'Box 3'),
-    ((763,330,795,353), 'Box 4'),
-    ((897,191,920,230), 'Box 5')
+    ((291, 187, 329, 240), 'Box 1'),
+    ((504, 300, 539, 334), 'Box 2'),
+    ((763, 295, 798, 321), 'Box 3'),
+    ((763, 330, 795, 353), 'Box 4'),
+    ((897, 191, 920, 230), 'Box 5')
 ]
+
+# Function to measure distance using object detection
+def measure_distance(frame, obj_width_in_frame):
+    # Implement distance measurement here using the provided script
+    # You may need to modify this function to fit your specific requirements
+    Known_distance = 13.0  # Example known distance
+    Known_width = 5.0      # Example known width of the object
+
+    # Function to find focal length
+    def Focal_Length_Finder(Known_distance, real_width, width_in_rf_image):
+        focal_length = (width_in_rf_image * Known_distance) / real_width
+        return focal_length
+
+    # Function to find object width
+    def obj_data(img):
+        obj_width = 0
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, lower_range, upper_range)
+        _, mask1 = cv2.threshold(mask, 254, 255, cv2.THRESH_BINARY)
+        cnts, _ = cv2.findContours(mask1, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        for c in cnts:
+            x = 600
+            if cv2.contourArea(c) > x:
+                x, y, w, h = cv2.boundingRect(c)
+                cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                obj_width = w
+        return obj_width
+
+    # Function to find distance
+    def Distance_finder(Focal_Length, Known_width, obj_width_in_frame):
+        distance = (Known_width * Focal_Length) / obj_width_in_frame
+        return distance
+
+    # Assuming you have the reference image and its width
+    ref_image = cv2.imread("rf.png")
+    ref_image_obj_width = obj_data(ref_image)
+    Focal_length_found = Focal_Length_Finder(Known_distance, Known_width, ref_image_obj_width)
+
+    if obj_width_in_frame != 0:
+        Distance = Distance_finder(Focal_length_found, Known_width, obj_width_in_frame)
+        return round(Distance, 2)
+    else:
+        return None
 
 while True:
     t1 = cv2.getTickCount()
@@ -131,7 +169,7 @@ while True:
     if floating_model:
         input_data = (np.float32(input_data) - input_mean) / input_std
 
-    interpreter.set_tensor(input_details[0]['index'],input_data)
+    interpreter.set_tensor(input_details[0]['index'], input_data)
     interpreter.invoke()
 
     boxes = interpreter.get_tensor(output_details[boxes_idx]['index'])[0]
@@ -140,10 +178,10 @@ while True:
 
     for i in range(len(scores)):
         if ((scores[i] > min_conf_threshold) and (scores[i] <= 1.0)):
-            ymin = int(max(1,(boxes[i][0] * resH)))
-            xmin = int(max(1,(boxes[i][1] * resW)))
-            ymax = int(min(resH,(boxes[i][2] * resH)))
-            xmax = int(min(resW,(boxes[i][3] * resW)))
+            ymin = int(max(1, (boxes[i][0] * resH)))
+            xmin = int(max(1, (boxes[i][1] * resW)))
+            ymax = int(min(resH, (boxes[i][2] * resH)))
+            xmax = int(min(resW, (boxes[i][3] * resW)))
             
             cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (10, 255, 0), 2)
 
@@ -158,11 +196,15 @@ while True:
             for box_coords, box_number in predefined_boxes:
                 box_xmin, box_ymin, box_xmax, box_ymax = box_coords
                 if xmin < box_xmax and xmax > box_xmin and ymin < box_ymax and ymax > box_ymin:
-                    # Display notification with box number
-                    notification = 'Packman Captures %s!' % box_number
-                    notificationSize, _ = cv2.getTextSize(notification, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-                    cv2.rectangle(frame, (xmin, ymax), (xmin+notificationSize[0], ymax+notificationSize[1]+10), (0, 255, 255), cv2.FILLED)
-                    cv2.putText(frame, notification, (xmin, ymax+notificationSize[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                    # Display notification with box number if distance is more than 100 cm
+                    obj_width_in_frame = xmax - xmin
+                    distance = measure_distance(frame, obj_width_in_frame)
+                    if distance is not None and distance > 7:
+                        notification = 'Packman Captures %s!' % box_number
+                        notificationSize, _ = cv2.getTextSize(notification, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                        cv2.rectangle(frame, (xmin, ymax), (xmin+notificationSize[0], ymax+notificationSize[1]+10), (0, 255, 255), cv2.FILLED)
+                        cv2.putText(frame, notification, (xmin, ymax+notificationSize[1]+5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                        break  # Exit the loop after displaying notification for the first intersecting box
 
     # Drawing predefined boxes
     for box_coords, _ in predefined_boxes:
@@ -172,12 +214,13 @@ while True:
     cv2.imshow('Object detector', frame)
 
     t2 = cv2.getTickCount()
-    time1 = (t2-t1)/freq
-    frame_rate_calc = 1/time1
+    time1 = (t2 - t1) / freq
+    frame_rate_calc = 1 / time1
 
     if cv2.waitKey(1) == ord('q'):
         break
 
 cv2.destroyAllWindows()
 videostream.stop()
+
 
